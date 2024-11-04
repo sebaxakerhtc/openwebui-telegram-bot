@@ -219,14 +219,14 @@ async def handle_message(message: types.Message):
     await get_bot_info()
     
     if message.chat.type == "private":
-        await ollama_request(message)
+        await openwebui_request(message)
         return
 
     if await is_mentioned_in_group_or_supergroup(message):
         thread = await collect_message_thread(message)
         prompt = format_thread_for_prompt(thread)
         
-        await ollama_request(message, prompt)
+        await openwebui_request(message, prompt)
 
 async def is_mentioned_in_group_or_supergroup(message: types.Message):
     if message.chat.type not in ["group", "supergroup"]:
@@ -326,7 +326,7 @@ async def send_response(message, text):
             parse_mode=ParseMode.MARKDOWN,
         )
 
-async def ollama_request(message: types.Message, prompt: str = None):
+async def openwebui_request(message: types.Message, prompt: str = None):
     try:
         full_response = ""
         await bot.send_chat_action(message.chat.id, "typing")
@@ -338,7 +338,7 @@ async def ollama_request(message: types.Message, prompt: str = None):
 
         await add_prompt_to_active_chats(message, prompt, image_base64, modelname)
         logging.info(
-            f"[OllamaAPI]: Processing '{prompt}' for {message.from_user.first_name} {message.from_user.last_name}"
+            f"[OpenWebuiAPI]: Processing '{prompt}' for {message.from_user.first_name} {message.from_user.last_name}"
         )
         payload = ACTIVE_CHATS.get(message.from_user.id)
         async for response_data in generate(payload, modelname, prompt):
@@ -354,7 +354,7 @@ async def ollama_request(message: types.Message, prompt: str = None):
                     break
 
     except Exception as e:
-        print(f"-----\n[OllamaAPI-ERR] CAUGHT FAULT!\n{traceback.format_exc()}\n-----")
+        print(f"-----\n[OpenWebuiAPI-ERR] CAUGHT FAULT!\n{traceback.format_exc()}\n-----")
         await bot.send_message(
             chat_id=message.chat.id,
             text=f"Something went wrong.",

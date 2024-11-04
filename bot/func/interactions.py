@@ -17,7 +17,7 @@ allowed_ids = list(map(int, os.getenv("USER_IDS", "").split(",")))
 admin_ids = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))
 webui_base_url = os.getenv("WEBUI_BASE_URL")
 webui_port = os.getenv("WEBUI_PORT", "3000")
-log_level_str = os.getenv("LOG_LEVEL", "INFO")
+log_level_str = os.getenv("LOG_LEVEL", "DEBUG")
 allow_all_users_in_groups = bool(int(os.getenv("ALLOW_ALL_USERS_IN_GROUPS", "0")))
 log_levels = list(logging._levelToName.values())
 timeout = os.getenv("TIMEOUT", "3000")
@@ -46,7 +46,7 @@ async def generate(payload: dict, modelname: str, prompt: str):
         'Accept': 'application/json'
     }
     async with aiohttp.ClientSession(timeout=client_timeout) as session:
-        url = f"http://{webui_base_url}:{webui_port}/chat"
+        url = f"http://{webui_base_url}:{webui_port}/api/chat/completions"
         try:
             async with session.post(url, json=payload, headers=headers) as response:
                 if response.status != 200:
