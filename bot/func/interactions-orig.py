@@ -12,11 +12,10 @@ from functools import wraps
 from dotenv import load_dotenv
 load_dotenv()
 token = os.getenv("TOKEN")
-webui_token = os.getenv("WEBUI_TOKEN")
 allowed_ids = list(map(int, os.getenv("USER_IDS", "").split(",")))
 admin_ids = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))
-webui_base_url = os.getenv("WEBUI_BASE_URL")
-webui_port = os.getenv("WEBUI_PORT", "3000")
+ollama_base_url = os.getenv("OLLAMA_BASE_URL")
+ollama_port = os.getenv("OLLAMA_PORT", "11434")
 log_level_str = os.getenv("LOG_LEVEL", "INFO")
 allow_all_users_in_groups = bool(int(os.getenv("ALLOW_ALL_USERS_IN_GROUPS", "0")))
 log_levels = list(logging._levelToName.values())
@@ -27,33 +26,27 @@ else:
     log_level = logging.getLevelName(log_level_str)
 logging.basicConfig(level=log_level)
 async def model_list():
-    headers = {
-        'Authorization': f'Bearer {webui_token}',
-        'Accept': 'application/json'
-    }
     async with aiohttp.ClientSession() as session:
-        url = f"http://{webui_base_url}:{webui_port}/api/models"
-        async with session.get(url, headers=headers) as response:
+        url = f"http://{ollama_base_url}:{ollama_port}/api/tags"
+        async with session.get(url) as response:
             if response.status == 200:
                 data = await response.json()
-                return data["data"]
+                return data["models"]
             else:
                 return []
 async def generate(payload: dict, modelname: str, prompt: str):
     client_timeout = ClientTimeout(total=int(timeout))
-    headers = {
-        'Authorization': f'Bearer {webui_token}',
-        'Accept': 'application/json'
-    }
     async with aiohttp.ClientSession(timeout=client_timeout) as session:
-        url = f"http://{webui_base_url}:{webui_port}/chat"
+        url = f"http://{ollama_base_url}:{ollama_port}/api/chat"
+
         try:
-            async with session.post(url, json=payload, headers=headers) as response:
+            async with session.post(url, json=payload) as response:
                 if response.status != 200:
                     raise aiohttp.ClientResponseError(
                         status=response.status, message=response.reason
                     )
                 buffer = b""
+
                 async for chunk in response.content.iter_any():
                     buffer += chunk
                     while b"\n" in buffer:

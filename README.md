@@ -3,7 +3,7 @@
   <a href="">
     <img src="res/github/ollama-telegram-readme.png" width="200" height="200">
   </a>
-  <h1>🦙 Ollama Telegram Bot</h1>
+  <h1>🦙 Openwebui Telegram Bot</h1>
   <p>
     <b>Chat with your LLM, using Telegram bot!</b><br>
     <b>Feel free to contribute!</b><br>
@@ -60,9 +60,9 @@ The official image is available at dockerhub: [ruecat/ollama-telegram](https://h
     ```yml
     version: '3.8'
     services:
-      ollama-telegram:
-        image: ruecat/ollama-telegram
-        container_name: ollama-telegram
+      openwebui-telegram:
+        image: ruecat/openwebui-telegram
+        container_name: openwebui-telegram
         restart: on-failure
         env_file:
           - ./.env
@@ -114,19 +114,20 @@ The official image is available at dockerhub: [ruecat/ollama-telegram](https://h
 
     2. To run ollama from locally installed instance (mainly for **MacOS**, since docker image doesn't support Apple GPU acceleration yet):
         ```
-        docker compose up --build -d ollama-tg
+        docker compose up --build -d openwebui-tg
         ```
 
 ## Environment Configuration
 |          Parameter          |                                                      Description                                                      | Required? | Default Value |                        Example                        |
 |:---------------------------:|:---------------------------------------------------------------------------------------------------------------------:|:---------:|:-------------:|:-----------------------------------------------------:|
 |           `TOKEN`           | Your **Telegram bot token**.<br/>[[How to get token?]](https://core.telegram.org/bots/tutorial#obtain-your-bot-token) |    Yes    |  `yourtoken`  |             MTA0M****.GY5L5F.****g*****5k             |
+|        `WEBUI_TOKEN`        |                                               from your webui interface                                               |    Yes    |  `yourtoken`  |             sk-23nb536vynmbv534nmb345             |
 |         `ADMIN_IDS`         |                     Telegram user IDs of admins.<br/>These can change model and control the bot.                      |    Yes    |               | 1234567890<br/>**OR**<br/>1234567890,0987654321, etc. |
 |         `USER_IDS`          |                       Telegram user IDs of regular users.<br/>These only can chat with the bot.                       |    Yes    |               | 1234567890<br/>**OR**<br/>1234567890,0987654321, etc. |
 |         `INITMODEL`         |                                                      Default LLM                                                      |    No     |   `llama2`    |        mistral:latest<br/>mistral:7b-instruct         |
 |      `OLLAMA_BASE_URL`      |                                                  Your OllamaAPI URL                                                   |    No     |               |          localhost<br/>host.docker.internal           |
 |        `OLLAMA_PORT`        |                                                  Your OllamaAPI port                                                  |    No     |     11434     |                                                       |
-|            `TIMEOUT`        |                                    The timeout in seconds for generating responses                                    |    No     |     3000      |                                                       |
+|          `TIMEOUT`          |                                    The timeout in seconds for generating responses                                    |    No     |     3000      |                                                       |
 | `ALLOW_ALL_USERS_IN_GROUPS` |                Allows all users in group chats interact with bot without adding them to USER_IDS list                 |    No     |       0       |                                                       |
 
 

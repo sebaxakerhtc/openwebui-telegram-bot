@@ -1,9 +1,9 @@
 # WORK IN PROGRESS
 version: '3.8'
 services:
-  ollama-tg:
+  openwebui-tg:
     build: .
-    container_name: ollama-tg
+    container_name: openwebui-tg
     restart: on-failure
     env_file:
       - ./.env
