@@ -156,6 +156,7 @@ async def switchllm_callback_handler(query: types.CallbackQuery):
                 )
             except KeyError as e:
                 modelfamilies = f"✨"
+        else: modelfamilies = f"🌏"
         switchllm_builder.row(
             types.InlineKeyboardButton(
                 text=f"{modelname} {modelfamilies}", callback_data=f"model_{modelname}"
