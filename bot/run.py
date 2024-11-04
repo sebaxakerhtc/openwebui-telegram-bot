@@ -148,11 +148,11 @@ async def switchllm_callback_handler(query: types.CallbackQuery):
     for model in models:
         modelname = model["name"]
         modelfamilies = ""
-        if model["details"]["families"]:
+        if model["ollama"]["details"]["families"]:
             modelicon = {"llama": "🦙", "clip": "📷"}
             try:
                 modelfamilies = "".join(
-                    [modelicon[family] for family in model["details"]["families"]]
+                    [modelicon[family] for family in model["ollama"]["details"]["families"]]
                 )
             except KeyError as e:
                 modelfamilies = f"✨"
