@@ -148,7 +148,7 @@ async def switchllm_callback_handler(query: types.CallbackQuery):
     for model in models:
         modelname = model["name"]
         modelfamilies = ""
-        if model["ollama"]["details"]["families"]:
+        if "ollama" in model and model["ollama"].get("details", {}).get("families", []):
             modelicon = {"llama": "🦙", "clip": "📷"}
             try:
                 modelfamilies = "".join(
