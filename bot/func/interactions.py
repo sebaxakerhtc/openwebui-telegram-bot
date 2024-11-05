@@ -60,6 +60,12 @@ async def generate(payload: dict, modelname: str, prompt: str):
                         line, buffer = buffer.split(b"\n", 1)
                         line = line.strip()
                         if line: # Decode line as UTF-8 before processing
+                            if line.startswith(b"data: "):
+                                line = line[len(b"data: "):]
+                        
+                            if line == b"[DONE]":
+                                return
+
                             try:
                                 decoded_line = line.decode("utf-8")
                                 json_data = json.loads(decoded_line)
