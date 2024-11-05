@@ -60,7 +60,15 @@ async def generate(payload: dict, modelname: str, prompt: str):
                         line, buffer = buffer.split(b"\n", 1)
                         line = line.strip()
                         if line:
-                            yield json.loads(line)
+                            # Decode line as UTF-8 before processing
+                            try:
+                                decoded_line = line.decode("utf-8")
+                                json_data = json.loads(decoded_line)
+                                yield json_data
+                            except UnicodeDecodeError:
+                                logging.error(f"Failed to decode line: {line}")
+                            except json.JSONDecodeError:
+                                logging.error(f"Failed to parse JSON: {decoded_line}")
         except aiohttp.ClientError as e:
             print(f"Error during request: {e}")
 
