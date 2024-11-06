@@ -300,8 +300,8 @@ async def handle_response(message, response_data, full_response):
     full_response_stripped = full_response.strip()
     if full_response_stripped == "":
         return
-    if response_data.get("done"):
-        text = f"{full_response_stripped}\n\n⚙️ {modelname}\nGenerated in {response_data.get('total_duration') / 1e9:.2f}s."
+    if response_data.get("choices", [{}])[0].get("finish_reason", "stop"):
+        text = f"{full_response_stripped}\n\n⚙️ {modelname}"
         await send_response(message, text)
         async with ACTIVE_CHATS_LOCK:
             if ACTIVE_CHATS.get(message.from_user.id) is not None:
@@ -342,13 +342,13 @@ async def openwebui_request(message: types.Message, prompt: str = None):
         )
         payload = ACTIVE_CHATS.get(message.from_user.id)
         async for response_data in generate(payload, modelname, prompt):
-            msg = response_data.get("message")
+            msg = response_data.get("choices", [{}])[0].get("delta", {})
             if msg is None:
                 continue
             chunk = msg.get("content", "")
             full_response += chunk
 
-            if any([c in chunk for c in ".\n!?"]) or response_data.get("done"):
+            if any([c in chunk for c in ".\n!?"]) or response_data.get("choices", [{}])[0].get("finish_reason", "stop"):
                 if await handle_response(message, response_data, full_response):
                     save_chat_message(message.from_user.id, "assistant", full_response)
                     break
