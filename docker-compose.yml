@@ -7,7 +7,9 @@ services:
     restart: on-failure
     env_file:
       - ./.env
-  
+    volumes:
+      - ollama-tg:/code/  # Mounting a volume for SQLite database
+
   ollama-api:
     image: ollama/ollama:latest
     container_name: ollama-server
@@ -28,3 +30,5 @@ services:
     restart: always
     ports:
       - '11434:11434'
+volumes:
+  ollama-tg:
