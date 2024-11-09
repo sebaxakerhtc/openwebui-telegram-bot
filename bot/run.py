@@ -22,6 +22,7 @@ start_kb.row(
 )
 settings_kb.row(
     types.InlineKeyboardButton(text="🔄 Switch LLM", callback_data="switchllm"),
+    types.InlineKeyboardButton(text="🔄 Switch SD Model", callback_data="switchsdm"),
     # types.InlineKeyboardButton(text="✏️ Edit system prompt", callback_data="editsystemprompt"),
 )
 
@@ -141,6 +142,21 @@ async def settings_callback_handler(query: types.CallbackQuery):
         reply_markup=settings_kb.as_markup()
     )
 
+@dp.callback_query(lambda query: query.data == "switchsdm")
+async def switchsdm_callback_handler(query: types.CallbackQuery):
+    sdmodels = await sdmodel_list()
+    switchsdm_builder = InlineKeyboardBuilder()
+    for sdmodel in sdmodels:
+        sdmodelname = sdmodel["name"]
+        switchsdm_builder.row(
+            types.InlineKeyboardButton(
+                text=f"{sdmodelname}", callback_data=f"model_{sdmodelname}"
+            )
+        )
+    await query.message.edit_text(
+        f"{len(sdmodels)} models available.", reply_markup=switchsdm_builder.as_markup(),
+    )
+
 @dp.callback_query(lambda query: query.data == "switchllm")
 async def switchllm_callback_handler(query: types.CallbackQuery):
     models = await model_list()
@@ -167,6 +183,12 @@ async def switchllm_callback_handler(query: types.CallbackQuery):
     )
 
 
+@dp.callback_query(lambda query: query.data.startswith("sdmodel_"))
+async def sdmodel_callback_handler(query: types.CallbackQuery):
+    global sdmodelname
+    sdmodelname = query.data.split("model_")[1]
+    await query.answer(f"Chosen model: {sdmodelname}")
+    
 @dp.callback_query(lambda query: query.data.startswith("model_"))
 async def model_callback_handler(query: types.CallbackQuery):
     global modelname
