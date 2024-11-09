@@ -18,27 +18,33 @@ start_kb.row(
     types.InlineKeyboardButton(text="ℹ️ About", callback_data="about"),
     types.InlineKeyboardButton(text="⚙️ Settings", callback_data="settings"),
     types.InlineKeyboardButton(text="📝 Register", callback_data="register"),
-
 )
 settings_kb.row(
     types.InlineKeyboardButton(text="🔄 Switch LLM", callback_data="switchllm"),
-    # types.InlineKeyboardButton(text="✏️ Edit system prompt", callback_data="editsystemprompt"),
+    types.InlineKeyboardButton(text="🗑️ Delete LLM", callback_data="delete_model"),
 )
-
+settings_kb.row(
+    types.InlineKeyboardButton(text="📋 Select System Prompt", callback_data="select_prompt"),
+    types.InlineKeyboardButton(text="🗑️ Delete System Prompt", callback_data="delete_prompt"), 
+)
 settings_kb.row(
     types.InlineKeyboardButton(text="📋 List Users and remove User", callback_data="list_users"),
 )
-
 
 commands = [
     types.BotCommand(command="start", description="Start"),
     types.BotCommand(command="reset", description="Reset Chat"),
     types.BotCommand(command="history", description="Look through messages"),
+    types.BotCommand(command="pullmodel", description="Pull a model from Ollama"),
+    types.BotCommand(command="addglobalprompt", description="Add a global prompt"),
+    types.BotCommand(command="addprivateprompt", description="Add a private prompt"),
 ]
+
 ACTIVE_CHATS = {}
 ACTIVE_CHATS_LOCK = contextLock()
 modelname = os.getenv("INITMODEL")
 mention = None
+selected_prompt_id = None  # Variable to store the selected prompt ID
 CHAT_TYPE_GROUP = "group"
 CHAT_TYPE_SUPERGROUP = "supergroup"
 
@@ -54,13 +60,15 @@ def init_db():
                   content TEXT,
                   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (user_id) REFERENCES users(id))''')
+    c.execute('''CREATE TABLE IF NOT EXISTS system_prompts
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER,
+                  prompt TEXT,
+                  is_global BOOLEAN,
+                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY (user_id) REFERENCES users(id))''')
     conn.commit()
     conn.close()
-
-    # Load user IDs from the database and update allowed_ids
-    # db_user_ids = load_allowed_ids_from_db()
-    # allowed_ids.extend([user_id for user_id in db_user_ids if user_id not in allowed_ids])
-
 
 def register_user(user_id, user_name):
     conn = sqlite3.connect('users.db')
@@ -77,14 +85,12 @@ def save_chat_message(user_id, role, content):
     conn.commit()
     conn.close()
 
-
 @dp.callback_query(lambda query: query.data == "register")
 async def register_callback_handler(query: types.CallbackQuery):
     user_id = query.from_user.id
     user_name = query.from_user.full_name
     register_user(user_id, user_name)
     await query.answer("You have been registered successfully!")
-
 
 async def get_bot_info():
     global mention
@@ -102,6 +108,7 @@ async def command_start_handler(message: Message) -> None:
         reply_markup=start_kb.as_markup(),
         disable_web_page_preview=True,
     )
+
 @dp.message(Command("reset"))
 async def command_reset_handler(message: Message) -> None:
     if message.from_user.id in allowed_ids:
@@ -113,6 +120,7 @@ async def command_reset_handler(message: Message) -> None:
                 chat_id=message.chat.id,
                 text="Chat has been reset",
             )
+
 @dp.message(Command("history"))
 async def command_get_context_handler(message: Message) -> None:
     if message.from_user.id in allowed_ids:
@@ -131,6 +139,38 @@ async def command_get_context_handler(message: Message) -> None:
                 chat_id=message.chat.id,
                 text="No chat history available for this user",
             )
+
+@dp.message(Command("addglobalprompt"))
+async def add_global_prompt_handler(message: Message):
+    prompt_text = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else None  # Get the prompt text from the command arguments
+    if prompt_text:
+        add_system_prompt(message.from_user.id, prompt_text, True)
+        await message.answer("Global prompt added successfully.")
+    else:
+        await message.answer("Please provide a prompt text to add.")
+
+@dp.message(Command("addprivateprompt"))
+async def add_private_prompt_handler(message: Message):
+    prompt_text = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else None  # Get the prompt text from the command arguments
+    if prompt_text:
+        add_system_prompt(message.from_user.id, prompt_text, False)
+        await message.answer("Private prompt added successfully.")
+    else:
+        await message.answer("Please provide a prompt text to add.")
+
+@dp.message(Command("pullmodel"))
+async def pull_model_handler(message: Message) -> None:
+    model_name = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else None  # Get the model name from the command arguments
+    logging.info(f"Downloading {model_name}")
+    if model_name:
+        response = await manage_model("pull", model_name)
+        if response.status == 200:
+            await message.answer(f"Model '{model_name}' is being pulled.")
+        else:
+            await message.answer(f"Failed to pull model '{model_name}': {response.reason}")
+    else:
+        await message.answer("Please provide a model name to pull.")
+
 @dp.callback_query(lambda query: query.data == "settings")
 async def settings_callback_handler(query: types.CallbackQuery):
     await bot.send_message(
@@ -165,14 +205,12 @@ async def switchllm_callback_handler(query: types.CallbackQuery):
         f"{len(models)} models available.\n🦙 = Regular\n🦙📷 = Multimodal", reply_markup=switchllm_builder.as_markup(),
     )
 
-
 @dp.callback_query(lambda query: query.data.startswith("model_"))
 async def model_callback_handler(query: types.CallbackQuery):
     global modelname
     global modelfamily
     modelname = query.data.split("model_")[1]
     await query.answer(f"Chosen model: {modelname}")
-
 
 @dp.callback_query(lambda query: query.data == "about")
 @perms_admins
@@ -211,6 +249,71 @@ async def remove_user_from_list_handler(query: types.CallbackQuery):
 async def cancel_remove_handler(query: types.CallbackQuery):
     await query.message.edit_text("User removal cancelled.")
 
+@dp.callback_query(lambda query: query.data == "select_prompt")
+async def select_prompt_callback_handler(query: types.CallbackQuery):
+    prompts = get_system_prompts(user_id=query.from_user.id)
+    prompt_kb = InlineKeyboardBuilder()
+    for prompt in prompts:
+        prompt_id, _, prompt_text, _, _ = prompt
+        prompt_kb.row(
+            types.InlineKeyboardButton(
+                text=prompt_text, callback_data=f"prompt_{prompt_id}"
+            )
+        )
+    await query.message.edit_text(
+        f"{len(prompts)} system prompts available.", reply_markup=prompt_kb.as_markup()
+    )
+
+@dp.callback_query(lambda query: query.data.startswith("prompt_"))
+async def prompt_callback_handler(query: types.CallbackQuery):
+    global selected_prompt_id
+    selected_prompt_id = int(query.data.split("prompt_")[1])
+    await query.answer(f"Selected prompt ID: {selected_prompt_id}")
+
+@dp.callback_query(lambda query: query.data == "delete_prompt")
+async def delete_prompt_callback_handler(query: types.CallbackQuery):
+    prompts = get_system_prompts(user_id=query.from_user.id)
+    delete_prompt_kb = InlineKeyboardBuilder()
+    for prompt in prompts:
+        prompt_id, _, prompt_text, _, _ = prompt
+        delete_prompt_kb.row(
+            types.InlineKeyboardButton(
+                text=prompt_text, callback_data=f"delete_prompt_{prompt_id}"
+            )
+        )
+    await query.message.edit_text(
+        f"{len(prompts)} system prompts available for deletion.", reply_markup=delete_prompt_kb.as_markup()
+    )
+
+@dp.callback_query(lambda query: query.data.startswith("delete_prompt_"))
+async def delete_prompt_confirm_handler(query: types.CallbackQuery):
+    prompt_id = int(query.data.split("delete_prompt_")[1])
+    delete_ystem_prompt(prompt_id)
+    await query.answer(f"Deleted prompt ID: {prompt_id}")
+
+@dp.callback_query(lambda query: query.data == "delete_model")
+async def delete_model_callback_handler(query: types.CallbackQuery):
+    models = await model_list()
+    delete_model_kb = InlineKeyboardBuilder()
+    for model in models:
+        modelname = model["name"]
+        delete_model_kb.row(
+            types.InlineKeyboardButton(
+                text=modelname, callback_data=f"delete_model_{modelname}"
+            )
+        )
+    await query.message.edit_text(
+        f"{len(models)} models available for deletion.", reply_markup=delete_model_kb.as_markup()
+    )
+
+@dp.callback_query(lambda query: query.data.startswith("delete_model_"))
+async def delete_model_confirm_handler(query: types.CallbackQuery):
+    modelname = query.data.split("delete_model_")[1]
+    response = await manage_model("delete", modelname)
+    if response.status == 200:
+        await query.answer(f"Deleted model: {modelname}")
+    else:
+        await query.answer(f"Failed to delete model: {modelname}")
 
 @dp.message()
 @perms_allowed
@@ -272,28 +375,39 @@ async def process_image(message):
         image_base64 = base64.b64encode(image_buffer.getvalue()).decode("utf-8")
     return image_base64
 
-async def add_prompt_to_active_chats(message, prompt, image_base64, modelname):
+async def add_prompt_to_active_chats(message, prompt, image_base64, modelname, system_prompt=None):
     async with ACTIVE_CHATS_LOCK:
-        if ACTIVE_CHATS.get(message.from_user.id) is None:
-            ACTIVE_CHATS[message.from_user.id] = {
-                "model": modelname,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt,
-                        "images": ([image_base64] if image_base64 else []),
-                    }
-                ],
-                "stream": True,
-            }
-        else:
-            ACTIVE_CHATS[message.from_user.id]["messages"].append(
-                {
-                    "role": "user",
-                    "content": prompt,
-                    "images": ([image_base64] if image_base64 else []),
-                }
-            )
+        # Prepare the messages list
+        messages = []
+        
+        # Add system prompt if provided and not already present
+        if system_prompt:
+            # Check if a system message already exists
+            existing_system_messages = [msg for msg in ACTIVE_CHATS.get(message.from_user.id, {}).get('messages', []) if msg.get('role') == 'system']
+            
+            if not existing_system_messages:
+                messages.append({
+                    "role": "system",
+                    "content": system_prompt
+                })
+        
+        # Add existing messages if the chat exists, excluding any existing system messages
+        if ACTIVE_CHATS.get(message.from_user.id):
+            messages.extend([msg for msg in ACTIVE_CHATS[message.from_user.id].get("messages", []) if msg.get('role') != 'system'])
+        
+        # Add the new user message
+        messages.append({
+            "role": "user",
+            "content": prompt,
+            "images": ([image_base64] if image_base64 else []),
+        })
+        
+        # Update or create the active chat
+        ACTIVE_CHATS[message.from_user.id] = {
+            "model": modelname,
+            "messages": messages,
+            "stream": True,
+        }
 
 async def handle_response(message, response_data, full_response):
     full_response_stripped = full_response.strip()
@@ -330,16 +444,39 @@ async def ollama_request(message: types.Message, prompt: str = None):
         full_response = ""
         await bot.send_chat_action(message.chat.id, "typing")
         image_base64 = await process_image(message)
+        
+        # Determine the prompt
         if prompt is None:
             prompt = message.text or message.caption
 
+        # Retrieve and prepare system prompt if selected
+        system_prompt = None
+        if selected_prompt_id is not None:
+            system_prompts = get_system_prompts(user_id=message.from_user.id, is_global=None)
+            if system_prompts:
+                # Find the specific prompt by ID
+                for sp in system_prompts:
+                    if sp[0] == selected_prompt_id:
+                        system_prompt = sp[2]
+                        break
+                
+                if system_prompt is None:
+                    logging.warning(f"Selected prompt ID {selected_prompt_id} not found for user {message.from_user.id}")
+
+        # Save the user's message
         save_chat_message(message.from_user.id, "user", prompt)
 
-        await add_prompt_to_active_chats(message, prompt, image_base64, modelname)
+        # Prepare the active chat with the system prompt
+        await add_prompt_to_active_chats(message, prompt, image_base64, modelname, system_prompt)
+        
         logging.info(
             f"[OllamaAPI]: Processing '{prompt}' for {message.from_user.first_name} {message.from_user.last_name}"
         )
+        
+        # Get the payload from active chats
         payload = ACTIVE_CHATS.get(message.from_user.id)
+        
+        # Generate response
         async for response_data in generate(payload, modelname, prompt):
             msg = response_data.get("message")
             if msg is None:
@@ -356,10 +493,9 @@ async def ollama_request(message: types.Message, prompt: str = None):
         print(f"-----\n[OllamaAPI-ERR] CAUGHT FAULT!\n{traceback.format_exc()}\n-----")
         await bot.send_message(
             chat_id=message.chat.id,
-            text=f"Something went wrong.",
+            text=f"Something went wrong: {str(e)}",
             parse_mode=ParseMode.HTML,
         )
-
 
 async def main():
     init_db()
@@ -367,7 +503,6 @@ async def main():
     print(f"allowed_ids: {allowed_ids}")
     await bot.set_my_commands(commands)
     await dp.start_polling(bot, skip_update=True)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
