@@ -39,6 +39,19 @@ async def model_list():
                 return data["data"]
             else:
                 return []
+async def sdmodel_list():
+    headers = {
+        'Authorization': f'Bearer {webui_token}',
+        'Accept': 'application/json'
+    }
+    async with aiohttp.ClientSession() as session:
+        url = f"http://{webui_base_url}:{webui_port}/images/api/v1/models"
+        async with session.get(url, headers=headers) as response:
+            if response.status == 200:
+                data = await response.json()
+                return data
+            else:
+                return []
 async def generate(payload: dict, modelname: str, prompt: str):
     client_timeout = ClientTimeout(total=int(timeout))
     headers = {
