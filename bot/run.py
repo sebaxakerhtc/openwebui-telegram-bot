@@ -1,14 +1,17 @@
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
 from aiogram.filters.command import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, FSInputFile
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from func.interactions import *
+import aiohttp
 import asyncio
 import traceback
 import io
+from io import BytesIO
 import base64
 import sqlite3
+import logging
 bot = Bot(token=token)
 dp = Dispatcher()
 start_kb = InlineKeyboardBuilder()
@@ -34,6 +37,7 @@ commands = [
     types.BotCommand(command="start", description="Start"),
     types.BotCommand(command="reset", description="Reset Chat"),
     types.BotCommand(command="history", description="Look through messages"),
+    types.BotCommand(command="generate_image", description="Generate image"),
 ]
 ACTIVE_CHATS = {}
 ACTIVE_CHATS_LOCK = contextLock()
@@ -131,6 +135,37 @@ async def command_get_context_handler(message: Message) -> None:
                 chat_id=message.chat.id,
                 text="No chat history available for this user",
             )
+@dp.message(Command("generate_image"))
+async def generate_image_handler(message: types.Message):
+    parts = message.text.split(' ', 1)
+    if len(parts) > 1:
+        image_description = parts[1]
+    else:
+        image_description = message.caption
+
+    if not image_description:
+        await message.reply("Пожалуйста, укажите описание для генерируемого изображения.")
+        return
+
+    try:
+        image_url = await generate_image(image_description)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:
+                if response.status == 200:
+                    temp_file_path = "temp_generated_image.png"
+                    with open(temp_file_path, "wb") as temp_file:
+                        temp_file.write(await response.read())
+
+                    photo = FSInputFile(temp_file_path)
+                    await message.answer_photo(photo=photo, caption="")
+
+                    os.remove(temp_file_path)
+                else:
+                    await message.reply(f"Не удалось загрузить изображение, статус: {response.status}")
+    except Exception as e:
+        await message.reply(f"Ошибка: {e}")
+
 @dp.callback_query(lambda query: query.data == "settings")
 async def settings_callback_handler(query: types.CallbackQuery):
     await bot.send_message(

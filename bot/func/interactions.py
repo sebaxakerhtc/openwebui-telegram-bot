@@ -76,7 +76,30 @@ async def generate(payload: dict, modelname: str, prompt: str):
                                 logging.error(f"Failed to parse JSON: {decoded_line}")
         except aiohttp.ClientError as e:
             print(f"Error during request: {e}")
-
+async def generate_image(description: str) -> str:
+    headers = {
+        'Authorization': f'Bearer {webui_token}',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        "prompt": description,
+        # Добавьте другие необходимые параметры для вашего API
+    }
+    
+    client_timeout = ClientTimeout(total=int(timeout))
+    async with aiohttp.ClientSession(timeout=client_timeout) as session:
+        base_url = f"http://{webui_base_url}:{webui_port}"
+        url = f"http://{webui_base_url}:{webui_port}/images/api/v1/generations"
+        try:
+            async with session.post(url, json=payload, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return base_url + data[0]['url']
+                else:
+                    logging.error(f"Ошибка при запросе к API: {response.status}")
+        except Exception as e:
+            logging.error(f"Произошла ошибка при запросе к API: {e}")
 def load_allowed_ids_from_db():
     conn = sqlite3.connect('users.db')
     c = conn.cursor()
