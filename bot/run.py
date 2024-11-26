@@ -37,7 +37,7 @@ commands = [
     types.BotCommand(command="start", description="Start"),
     types.BotCommand(command="reset", description="Reset Chat"),
     types.BotCommand(command="history", description="Look through messages"),
-    types.BotCommand(command="generate_image", description="Generate image"),
+    types.BotCommand(command="image", description="Generate image"),
 ]
 ACTIVE_CHATS = {}
 ACTIVE_CHATS_LOCK = contextLock()
