@@ -135,7 +135,7 @@ async def command_get_context_handler(message: Message) -> None:
                 chat_id=message.chat.id,
                 text="No chat history available for this user",
             )
-@dp.message(Command("generate_image"))
+@dp.message(Command("image"))
 async def generate_image_handler(message: types.Message):
     parts = message.text.split(' ', 1)
     if len(parts) > 1:
@@ -182,6 +182,7 @@ async def switchllm_callback_handler(query: types.CallbackQuery):
     switchllm_builder = InlineKeyboardBuilder()
     for model in models:
         modelname = model["name"]
+        modelid = model["id"]
         modelfamilies = ""
         if "ollama" in model and model["ollama"].get("details", {}).get("families", []):
             modelicon = {"llama": "🦙", "clip": "📷"}
@@ -194,11 +195,11 @@ async def switchllm_callback_handler(query: types.CallbackQuery):
         else: modelfamilies = f"🌏"
         switchllm_builder.row(
             types.InlineKeyboardButton(
-                text=f"{modelname} {modelfamilies}", callback_data=f"model_{modelname}"
+                text=f"{modelname} {modelfamilies}", callback_data=f"model_{modelid}"
             )
         )
     await query.message.edit_text(
-        f"{len(models)} models available.\n🦙 = Regular\n🦙📷 = Multimodal", reply_markup=switchllm_builder.as_markup(),
+        f"{len(models)} models available.\n🦙 = Regular\n🦙📷 = Multimodal\n🌏 = OpenWebUI", reply_markup=switchllm_builder.as_markup(),
     )
 
 
@@ -217,7 +218,7 @@ async def about_callback_handler(query: types.CallbackQuery):
     global modelname
     await bot.send_message(
         chat_id=query.message.chat.id,
-        text=f"<b>Your LLMs</b>\nCurrently using: <code>{modelname}</code>\nDefault in .env: <code>{dotenv_model}</code>\nThis project is under <a href='https://github.com/ruecat/ollama-telegram/blob/main/LICENSE'>MIT License.</a>\n<a href='https://github.com/ruecat/ollama-telegram'>Source Code</a>",
+        text=f"<b>Your LLMs</b>\nCurrently using: <code>{modelname}</code>\nDefault in .env: <code>{dotenv_model}</code>\nThis project is under <a href='https://github.com/sebaxakerhtc/openwebui-telegram-bot/blob/webui-api/LICENSE'>MIT License.</a>\n<a href='https://github.com/sebaxakerhtc/openwebui-telegram-bot'>Source Code</a>",
         parse_mode=ParseMode.HTML,
         disable_web_page_preview=True,
     )
